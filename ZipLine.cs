@@ -97,8 +97,8 @@ namespace Celeste.Mod.IsaGrabBag
 
         private float left, right, height;
 
-        public float Left { get { return left; } }
-        public float Right { get { return right; } }
+        public new float Left { get { return left; } }
+        public new float Right { get { return right; } }
 
         private float speed;
         private bool grabbed;

@@ -7,6 +7,8 @@ using Monocle;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System.Collections;
+using System.Reflection;
+using MonoMod.RuntimeDetour;
 
 namespace Celeste.Mod.IsaGrabBag {
 	struct CharacterState {
@@ -76,6 +78,8 @@ namespace Celeste.Mod.IsaGrabBag {
 		private static RenderTarget2D playerTarget;
 
 		private static Effect glitchEffect;
+		
+		private static Hook subHudRenderHook;
 
 		public static void ClearRewindBuffer() {
 			currentFrame = 0;
@@ -89,7 +93,19 @@ namespace Celeste.Mod.IsaGrabBag {
 			On.Celeste.Player.Update += Player_Update;
 			On.Celeste.Player.Render += Player_Render;
 			Everest.Events.Level.OnLoadLevel += Level_OnLoadLevel;
-			On.Celeste.Mod.UI.SubHudRenderer.Render += SubHudRenderer_Render;
+			
+			// Manual hook for SubHudRenderer.Render since On. hooks are deprecated
+			try {
+				var subHudType = typeof(Celeste).Assembly.GetType("Celeste.Mod.UI.SubHudRenderer");
+				if (subHudType != null) {
+					var renderMethod = subHudType.GetMethod("Render", BindingFlags.Public | BindingFlags.Instance);
+					if (renderMethod != null) {
+						subHudRenderHook = new Hook(renderMethod, typeof(RewindCrystal).GetMethod(nameof(SubHudRenderer_Render), BindingFlags.NonPublic | BindingFlags.Static));
+					}
+				}
+			} catch (Exception e) {
+				Logger.Log(LogLevel.Warn, "IsaGrabBag", "Failed to hook SubHudRenderer.Render: " + e.Message);
+			}
 		}
 
 		public static void Unload() {
@@ -98,7 +114,9 @@ namespace Celeste.Mod.IsaGrabBag {
 			On.Celeste.Player.Update -= Player_Update;
 			On.Celeste.Player.Render -= Player_Render;
 			Everest.Events.Level.OnLoadLevel -= Level_OnLoadLevel;
-			On.Celeste.Mod.UI.SubHudRenderer.Render -= SubHudRenderer_Render;
+			
+			subHudRenderHook?.Dispose();
+			subHudRenderHook = null;
 		}
 
 		public static void LoadGraphics() {
@@ -138,7 +156,9 @@ namespace Celeste.Mod.IsaGrabBag {
 			}
 		}
 
-		private static void SubHudRenderer_Render(On.Celeste.Mod.UI.SubHudRenderer.orig_Render orig, UI.SubHudRenderer self, Scene scene) {
+		private delegate void orig_SubHudRender(object self, Scene scene);
+		
+		private static void SubHudRenderer_Render(orig_SubHudRender orig, object self, Scene scene) {
 
 
 			if (MInput.Keyboard.Pressed(Microsoft.Xna.Framework.Input.Keys.Q)) {

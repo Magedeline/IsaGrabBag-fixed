@@ -136,7 +136,12 @@ namespace Celeste.Mod.IsaGrabBag
 
 		public bool InView()
 		{
-			Camera camera = (Scene as Level).Camera;
+			Level level = Scene as Level;
+			if (level == null)
+				return false;
+			Camera camera = level.Camera;
+			if (camera == null)
+				return false;
 			return X > camera.X - 16f && Y > camera.Y - 16f && X < camera.X + 320f + 16f && Y < camera.Y + 180f + 16f;
 		}
 	}
@@ -383,7 +388,7 @@ namespace Celeste.Mod.IsaGrabBag
 		{
 			base.Render();
 
-			if (Scene.Entities.FindFirst<DreamSpinner>() == null) {
+			if (Scene?.Entities?.FindFirst<DreamSpinner>() == null || stars == null) {
 				return;
 			}
 
@@ -420,6 +425,9 @@ namespace Celeste.Mod.IsaGrabBag
 
 		private void DrawTexture(bool isFragile) {
 
+			if (gameplayInstance == null)
+				return;
+
 			if (GrabBagModule.playerInstance != null && !GrabBagModule.playerInstance.Dead) {
 				dreamDashEnabled = GrabBagModule.playerInstance.Inventory.DreamDash;
 			}
@@ -430,6 +438,9 @@ namespace Celeste.Mod.IsaGrabBag
 			gd.Clear(ClearOptions.Target | ClearOptions.DepthBuffer, Color.Transparent, 0f, 0);
 
 			// Start rendering dream spinners
+			if (spinnerMainTex == null || spinnerBGTex == null || spinnerEffect == null)
+				return;
+
 			Draw.SpriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, spinnerState, RasterizerState.CullNone,
 				spinnerEffect, gameplayInstance.Camera.Matrix);
 
@@ -444,8 +455,15 @@ namespace Celeste.Mod.IsaGrabBag
 			}
 			spinnerBGTex.Color = spinnerMainTex.Color;
 
-			foreach (var spin in Scene.Entities.FindAll<DreamSpinner>()) {
-				if (spin.Fragile != isFragile || !spin.InView())
+			var spinners = Scene?.Entities?.FindAll<DreamSpinner>();
+			if (spinners == null)
+			{
+				Draw.SpriteBatch.End();
+				return;
+			}
+
+			foreach (var spin in spinners) {
+				if (spin == null || spin.Scene == null || spin.Fragile != isFragile || !spin.InView())
 					continue;
 
 				int type = spin.RNG;
@@ -465,6 +483,12 @@ namespace Celeste.Mod.IsaGrabBag
 
 
 			// Draw stars on spinner
+			if (stars == null || starTextures == null || starEffect == null)
+			{
+				gd.SetRenderTarget(GameplayBuffers.Gameplay);
+				return;
+			}
+
 			Draw.SpriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, starState, RasterizerState.CullNone,
 				starEffect, Matrix.Identity);
 
